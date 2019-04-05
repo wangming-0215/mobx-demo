@@ -1,7 +1,6 @@
-import { ISong, STATUS } from './types';
-
 import { useState, useEffect, useRef } from 'react';
 
+import { ISong } from './types';
 interface IBufferCache {
 	[key: string]: AudioBuffer;
 }
@@ -36,6 +35,13 @@ function useAudio(song: ISong) {
 	const [ended, setEnded] = useState(false);
 	const [loaded, setLoaded] = useState(false);
 
+	const [startOffset, setStartOffset] = useState(0);
+	const [startTime, setStartTime] = useState(0);
+
+	const [progress, setProgress] = useState(0);
+
+	const [duration, setDuration] = useState(0);
+
 	// 歌曲切换时，加载歌曲
 	useEffect(() => {
 		setLoaded(false);
@@ -46,6 +52,7 @@ function useAudio(song: ISong) {
 			const { context, sourceBuffer } = audioGlobal.current;
 			context.decodeAudioData(xhr.response, buffer => {
 				sourceBuffer[song.url] = buffer;
+				setDuration(buffer.duration);
 				setLoaded(true);
 			});
 		};
@@ -57,22 +64,59 @@ function useAudio(song: ISong) {
 		if (loaded && !paused) {
 			const { context, sourceBuffer } = audioGlobal.current;
 			const sourceNode = context.createBufferSource();
-			sourceNode.buffer = sourceBuffer[song.url];
+			const buffer = sourceBuffer[song.url];
+			sourceNode.buffer = buffer;
 			sourceNode.connect(context.destination);
-			sourceNode.start(0);
-			sourceNode.onended = function() {
-				setEnded(true);
-			};
+			sourceNode.start(0, startOffset % buffer.duration);
+			audioGlobal.current.sourceNode = sourceNode;
+
+			// 播放进度
+			const id = setInterval(() => {
+				const offset = startOffset + context.currentTime - startTime;
+				setProgress(offset / buffer.duration);
+			}, 500);
+			return () => clearInterval(id);
 		}
 	}, [paused, loaded, song]);
 
+	// 播放结束, 重置状态
+	useEffect(() => {
+		if (progress >= 1) {
+			// 修正结束时定时器可能会导致的一秒误差
+			setProgress(1);
+			setPaused(true);
+			setEnded(true);
+			setStartOffset(0);
+			setStartTime(0);
+		}
+	}, [progress]);
+
 	const play = () => {
 		setPaused(false);
+		const { context } = audioGlobal.current;
+		setStartTime(context.currentTime);
 	};
 
-	console.log(audioGlobal.current.sourceBuffer);
+	const pause = () => {
+		const { sourceNode, context } = audioGlobal.current;
+		if (sourceNode) {
+			sourceNode.stop(0);
+			setPaused(true);
+			setStartOffset(startOffset + context.currentTime - startTime);
+		}
+	};
 
-	return { paused, ended, loaded, play };
+	console.log('progress: ', progress);
+
+	return {
+		paused,
+		ended,
+		loaded,
+		play,
+		pause,
+		duration,
+		progress
+	};
 }
 
 export default useAudio;

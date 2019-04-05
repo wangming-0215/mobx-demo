@@ -1,0 +1,24 @@
+.player-progress-wrap {
+	position: relative;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.player-progress-wrap .time {
+	color: #fff;
+	padding: 0 5px;
+	font-size: 13px;
+}
+
+.player-progress-wrap .player-progress {
+	height: 2px;
+	background: #fff;
+	width: 100%;
+}
+
+.player-progress-wrap .player-progress .player-progress-bar {
+	height: inherit;
+	background: #f80;
+	transition: width 250ms linear;
+}

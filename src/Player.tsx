@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import Control from './components/Control/Control';
 import Title from './components/Title/Title';
 import Picture from './components/Picture/Picture';
+import Progress from './components/Progress/Progress';
 import useAudio from './common/useAudio';
-import { ISong, STATUS } from './common/types';
+import { ISong } from './common/types';
 import './Player.scss';
 
 interface IPlayerProps {
@@ -12,16 +13,17 @@ interface IPlayerProps {
 }
 
 function Player({ playList = [] }: IPlayerProps) {
-	const [index, setIndex] = useState(0);
-	const [paused, setPasued] = useState(true);
+	const [index, setIndex] = useState(1);
 	const song = playList[index];
 
-	const { play } = useAudio(song);
+	const { play, paused, pause, duration, progress } = useAudio(song);
 
 	const handlePlay = () => {
-		console.log('PLAY');
-		setPasued(!paused);
-		play();
+		if (paused) {
+			play();
+		} else {
+			pause();
+		}
 	};
 
 	return (
@@ -30,6 +32,7 @@ function Player({ playList = [] }: IPlayerProps) {
 				<Title name={song.name} singer={song.singer.join('/')} />
 				<Picture isPlay={!paused} url={song.pic} />
 			</div>
+			<Progress percent={progress} duration={duration} />
 			<div className="player-control">
 				<Control type="previous" size="small" />
 				<Control type={!paused ? 'pause' : 'play'} onClick={handlePlay} />
