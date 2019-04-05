@@ -1,0 +1,36 @@
+.player-song-picture {
+	flex-grow: 1;
+	flex-shrink: 1;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+
+	.picture {
+		width: 200px;
+		height: 200px;
+		border-radius: 50%;
+		overflow: hidden;
+		border: 30px solid #424242;
+		animation: rotate 5s infinite linear;
+		animation-play-state: paused;
+
+		&.play {
+			animation-play-state: running;
+		}
+
+		img {
+			width: 100%;
+			height: auto;
+		}
+	}
+}
+
+@keyframes rotate {
+	from {
+		transform: rotate(0) translateZ(0);
+	}
+
+	to {
+		transform: rotate(360deg) translateZ(0);
+	}
+}

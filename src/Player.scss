@@ -1,0 +1,22 @@
+.player-container {
+	height: 100%;
+	background-image: linear-gradient(to bottom, #a770ef, #cf8bf3, #fdb99b);
+	display: flex;
+	flex-direction: column;
+	-webkit-overflow-scrolling: none;
+}
+
+.player-control {
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+	padding: 40px 0;
+	width: 100%;
+	flex-shrink: 0;
+}
+
+.player-panel {
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+}
