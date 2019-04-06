@@ -13,10 +13,12 @@ interface IPlayerProps {
 }
 
 function Player({ playList = [] }: IPlayerProps) {
-	const [index, setIndex] = useState(1);
+	const [index, setIndex] = useState(0);
 	const song = playList[index];
 
-	const { play, paused, pause, duration, progress } = useAudio(song);
+	const { play, paused, pause, duration, progress, ended, stop } = useAudio(
+		song
+	);
 
 	const handlePlay = () => {
 		if (paused) {
@@ -26,6 +28,25 @@ function Player({ playList = [] }: IPlayerProps) {
 		}
 	};
 
+	const handleChangeSongs = (direction: 'prev' | 'next') => {
+		const nextIndex =
+			direction === 'next'
+				? (index + 1) % playList.length
+				: (playList.length + index - 1) % playList.length;
+
+		if (!paused || !ended) {
+			stop();
+		}
+		setIndex(nextIndex);
+		play();
+	};
+
+	useEffect(() => {
+		if (ended) {
+			handleChangeSongs('next');
+		}
+	}, [ended]);
+
 	return (
 		<div className="player-container">
 			<div className="player-panel">
@@ -34,9 +55,17 @@ function Player({ playList = [] }: IPlayerProps) {
 			</div>
 			<Progress percent={progress} duration={duration} />
 			<div className="player-control">
-				<Control type="previous" size="small" />
+				<Control
+					type="previous"
+					size="small"
+					onClick={() => handleChangeSongs('prev')}
+				/>
 				<Control type={!paused ? 'pause' : 'play'} onClick={handlePlay} />
-				<Control type="next" size="small" />
+				<Control
+					type="next"
+					size="small"
+					onClick={() => handleChangeSongs('next')}
+				/>
 			</div>
 		</div>
 	);

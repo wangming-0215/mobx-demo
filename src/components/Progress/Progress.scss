@@ -7,7 +7,7 @@
 
 .player-progress-wrap .time {
 	color: #fff;
-	padding: 0 5px;
+	padding: 0 15px;
 	font-size: 13px;
 }
 
@@ -20,5 +20,4 @@
 .player-progress-wrap .player-progress .player-progress-bar {
 	height: inherit;
 	background: #f80;
-	transition: width 250ms linear;
 }

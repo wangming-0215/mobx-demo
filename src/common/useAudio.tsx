@@ -44,6 +44,7 @@ function useAudio(song: ISong) {
 
 	// 歌曲切换时，加载歌曲
 	useEffect(() => {
+		console.log('load data');
 		setLoaded(false);
 		const xhr = new XMLHttpRequest();
 		xhr.open('GET', song.url);
@@ -84,8 +85,10 @@ function useAudio(song: ISong) {
 		if (progress >= 1) {
 			// 修正结束时定时器可能会导致的一秒误差
 			setProgress(1);
+
 			setPaused(true);
 			setEnded(true);
+			setLoaded(false);
 			setStartOffset(0);
 			setStartTime(0);
 		}
@@ -95,6 +98,9 @@ function useAudio(song: ISong) {
 		setPaused(false);
 		const { context } = audioGlobal.current;
 		setStartTime(context.currentTime);
+		if (ended) {
+			setEnded(false);
+		}
 	};
 
 	const pause = () => {
@@ -106,7 +112,18 @@ function useAudio(song: ISong) {
 		}
 	};
 
-	console.log('progress: ', progress);
+	const stop = () => {
+		const { sourceNode, context } = audioGlobal.current;
+		if (sourceNode) {
+			sourceNode.stop(0);
+			setPaused(true);
+			setLoaded(false);
+			setProgress(0);
+			setDuration(0);
+			setStartOffset(0);
+			setStartTime(0);
+		}
+	};
 
 	return {
 		paused,
@@ -115,7 +132,8 @@ function useAudio(song: ISong) {
 		play,
 		pause,
 		duration,
-		progress
+		progress,
+		stop
 	};
 }
 
