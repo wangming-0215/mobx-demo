@@ -1,138 +1,132 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 import { ISong } from './types';
+import * as utils from './utils';
+import useInterval from './useInterval';
+
 interface IBufferCache {
   [key: string]: AudioBuffer;
 }
 
+export enum STATUS {
+  PENDING = 'pending', // 初始状态
+  LOADING = 'loading', // 加载数据
+  LOADED = 'loaded', // 加载完成
+  PAUSED = 'paused', // 暂停
+  PLAYING = 'playing', // 播放
+  END = 'end' // 结束
+}
+
+type MaybeAudioBufferSourceNode = AudioBufferSourceNode | null;
+
 interface IAudioGlobal {
   context: AudioContext;
   sourceBuffer: IBufferCache;
-  sourceNode?: AudioBufferSourceNode;
+  sourceNode: MaybeAudioBufferSourceNode;
+  duration: number;
 }
 
-/**
- * use audio
- *
- * 处理一首歌的状态，包括播放， 暂停， 停止等。切换歌曲交给播放器组件处理。
- *
- * 坑：
- *  1. sourceNode.start() 对于每个sourceNode 只能执行一次，所以每次播放要创建一个新的sourceNode
- *  2. AudioContext.currentTime 是相对于当前时间一直在增加的
- *  3. sourceNode 和 buffer 应该挂载到 ref 还是 state 上
- *
- * @param url 歌曲链接
- *
- */
-function useAudio(song: ISong) {
-  // context 贯穿整个渲染过程，且保持不变。故而存储在ref中。
+function useAudio(playList: ISong[]) {
   const audioGlobal = useRef<IAudioGlobal>({
     context: new AudioContext(),
-    sourceBuffer: {}
+    sourceBuffer: {},
+    sourceNode: null,
+    duration: 0
   });
 
-  const [paused, setPaused] = useState(true);
-  const [ended, setEnded] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  // 播放器状态
+  const [status, setStatus] = useState<STATUS>(STATUS.PENDING);
 
-  const [startOffset, setStartOffset] = useState(0);
-  const [startTime, setStartTime] = useState(0);
+  // 当前播放的音频
+  const [sound, setSound] = useState<ISong>(playList[0]);
 
-  const [progress, setProgress] = useState(0);
+  // 开始播放时间
+  const [startTime, setStartTime] = useState<number>(0);
 
-  const [duration, setDuration] = useState(0);
+  // 播放偏移量
+  const [startOffset, setStartOffset] = useState<number>(0);
 
-  // 歌曲切换时，加载歌曲
-  useEffect(() => {
-    setLoaded(false);
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', song.url);
-    xhr.responseType = 'arraybuffer';
-    xhr.onload = function loaded() {
-      const { context, sourceBuffer } = audioGlobal.current;
-      context.decodeAudioData(xhr.response, buffer => {
-        sourceBuffer[song.url] = buffer;
-        setDuration(buffer.duration);
-        setLoaded(true);
-      });
-    };
-    xhr.send();
-  }, [song.url]);
+  // 播放进度
+  const [progress, setProgress] = useState<number>(0);
 
-  // 播放歌曲
-  useEffect(() => {
-    if (loaded && !paused) {
-      const { context, sourceBuffer } = audioGlobal.current;
-      const sourceNode = context.createBufferSource();
-      const buffer = sourceBuffer[song.url];
-      sourceNode.buffer = buffer;
-      sourceNode.connect(context.destination);
-      sourceNode.start(0, startOffset % buffer.duration);
-      audioGlobal.current.sourceNode = sourceNode;
-
-      // 播放进度
-      const id = setInterval(() => {
-        const offset = startOffset + context.currentTime - startTime;
-        setProgress(offset / buffer.duration);
-      }, 500);
-      return () => clearInterval(id);
-    }
-  }, [paused, loaded, song]);
-
-  // 播放结束, 重置状态
-  useEffect(() => {
-    if (progress >= 1) {
-      // 修正结束时定时器可能会导致的一秒误差
-      setProgress(1);
-
-      setPaused(true);
-      setEnded(true);
-      setLoaded(false);
-      setStartOffset(0);
-      setStartTime(0);
-    }
-  }, [progress]);
-
-  const play = () => {
-    setPaused(false);
+  function _loadAudio() {
     const { context } = audioGlobal.current;
+    utils
+      .loadSound(sound.url)
+      .then(data => context.decodeAudioData(data as ArrayBuffer))
+      .then(buffer => {
+        let { sourceBuffer } = audioGlobal.current;
+        sourceBuffer[sound.url] = buffer;
+        audioGlobal.current.duration = buffer.duration;
+        setStatus(STATUS.LOADED);
+      });
+  }
+
+  function _playback() {
+    const buffer = audioGlobal.current.sourceBuffer[sound.url];
+    const { context } = audioGlobal.current;
+    const sourceNode = context.createBufferSource();
+    sourceNode.buffer = buffer;
+    sourceNode.connect(context.destination);
+    sourceNode.start(0, startOffset % buffer.duration);
+    audioGlobal.current.sourceNode = sourceNode;
     setStartTime(context.currentTime);
-    if (ended) {
-      setEnded(false);
-    }
-  };
+    setStatus(STATUS.PLAYING);
+  }
 
-  const pause = () => {
-    const { sourceNode, context } = audioGlobal.current;
-    if (sourceNode) {
-      sourceNode.stop(0);
-      setPaused(true);
-      setStartOffset(startOffset + context.currentTime - startTime);
-    }
-  };
-
-  const stop = () => {
+  function _pause() {
     const { sourceNode } = audioGlobal.current;
-    if (sourceNode) {
-      sourceNode.stop(0);
-      setPaused(true);
-      setLoaded(false);
-      setProgress(0);
-      setDuration(0);
-      setStartOffset(0);
-      setStartTime(0);
+    sourceNode!.stop(0);
+  }
+
+  useInterval(
+    () => {
+      const { context, sourceBuffer } = audioGlobal.current;
+      const offset = startOffset + context.currentTime - startTime;
+      const buffer = sourceBuffer[sound.url];
+      const progress = offset / buffer.duration;
+      setProgress(progress);
+      if (progress >= 1) {
+        setStatus(STATUS.END);
+      }
+    },
+    status === STATUS.PLAYING ? 500 : null
+  );
+
+  useEffect(() => {
+    if (status === STATUS.LOADING) {
+      _loadAudio(); // 加载
+    } else if (status === STATUS.LOADED) {
+      _playback(); // 播放
+    } else if (status === STATUS.PAUSED) {
+      _pause(); // 暂停
+    } else if (status === STATUS.END) {
+      console.log('end');
     }
-  };
+  }, [status]);
+
+  function play() {
+    if (status === STATUS.PAUSED) {
+      setStatus(STATUS.LOADED);
+    } else {
+      setStatus(STATUS.LOADING);
+    }
+  }
+
+  function pause() {
+    const { context } = audioGlobal.current;
+    const offset = startOffset + context.currentTime - startTime;
+    setStartOffset(offset);
+    setStatus(STATUS.PAUSED);
+  }
 
   return {
-    paused,
-    ended,
-    loaded,
+    status,
+    sound,
     play,
     pause,
-    duration,
-    progress,
-    stop
+    duration: audioGlobal.current.duration,
+    progress
   };
 }
 
