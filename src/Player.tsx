@@ -13,7 +13,17 @@ interface IPlayerProps {
 }
 
 function Player({ playList = [] }: IPlayerProps) {
-  const { status, play, pause, sound, duration, progress } = useAudio(playList);
+  const {
+    status,
+    play,
+    pause,
+    next,
+    prev,
+    sound,
+    duration,
+    progress
+  } = useAudio(playList);
+
   console.log(progress);
 
   return (
@@ -24,13 +34,13 @@ function Player({ playList = [] }: IPlayerProps) {
       </div>
       <Progress percent={progress} duration={duration} />
       <div className="player-control">
-        <Control type="previous" size="small" onClick={() => {}} />
+        <Control type="previous" size="small" onClick={prev} />
         {status === STATUS.PLAYING ? (
-          <Control type="pause" onClick={() => pause()} />
+          <Control type="pause" onClick={pause} />
         ) : (
-          <Control type="play" onClick={() => play()} />
+          <Control type="play" onClick={play} />
         )}
-        <Control type="next" size="small" onClick={() => {}} />
+        <Control type="next" size="small" onClick={next} />
       </div>
     </div>
   );
